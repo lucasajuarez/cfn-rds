@@ -1,3 +1,47 @@
+# aws cloudformation create-stack --stack-name dev-signe-rds-stack \
+# --template-body file://AuroraClusterServerless.yml \
+# --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
+# --profile 975050021574_baseline-rol-saml-admin-member \
+# --parameters \
+# ParameterKey=pPrefix,ParameterValue="dev-signe" \
+# ParameterKey=pVPCId,ParameterValue="vpc-09c65c17a9bbaddf1" \
+# ParameterKey=pVPCCidr,ParameterValue="10.128.128.0/19" \
+# ParameterKey=pDBName,ParameterValue="SIGNE" \
+# ParameterKey=pClusterId,ParameterValue="dev-signe-cluster" \
+# ParameterKey=pInstanceId,ParameterValue="dev-signe-instance" \
+# ParameterKey=pDBEngine,ParameterValue="aurora-mysql" \
+# ParameterKey=pEngineVersion,ParameterValue="8.0" \
+# ParameterKey=pMasterUsername,ParameterValue="adminuser" \
+# ParameterKey=pMinCapacity,ParameterValue="2" \
+# ParameterKey=pMaxCapacity,ParameterValue="8" \
+# ParameterKey=pTagValueEnvironment,ParameterValue="dev" \
+# ParameterKey=pTagValueCostCenter,ParameterValue=735 \
+# ParameterKey=pTagValueName,ParameterValue="dev-signe-cluster"
+
+
+
+# aws cloudformation update-stack --stack-name PruebaRDS-Stack \
+# --template-body file://AuroraClusterServerless.yml \
+# --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
+# --profile 905418408906_baseline-rol-saml-admin-member \
+# --parameters \
+# ParameterKey=pPrefix,UsePreviousValue=true \
+# ParameterKey=pVPCId,UsePreviousValue=true \
+# ParameterKey=pVPCCidr,UsePreviousValue=true \
+# ParameterKey=pDBName,UsePreviousValue=true \
+# ParameterKey=pClusterId,UsePreviousValue=true \
+# ParameterKey=pInstanceId,UsePreviousValue=true \
+# ParameterKey=pDBEngine,UsePreviousValue=true \
+# ParameterKey=pEngineVersion,UsePreviousValue=true \
+# ParameterKey=pMasterUsername,UsePreviousValue=true \
+# ParameterKey=pMinCapacity,UsePreviousValue=true \
+# ParameterKey=pMaxCapacity,UsePreviousValue=true \
+# ParameterKey=pTagValueEnvironment,UsePreviousValue=true \
+# ParameterKey=pTagValueCostCenter,UsePreviousValue=true \
+# ParameterKey=pTagValueName,UsePreviousValue=true
+
+
+
 AWSTemplateFormatVersion: '2010-09-09'
 Description: Create an Aurora DB Cluster (serverless)
 
@@ -89,7 +133,7 @@ Parameters:
   pSubnetsPrivate:
     Type: List<AWS::EC2::Subnet::Id>
     Description: "Subnet para crear RDS SubnetGroup"
-    Default: "subnet-0782c1ef128e56874,subnet-020c7e4ab1b6248bd,subnet-01d1faa6f2cc6ef50"
+    Default: "subnet-0fab0644d91b9f5c2,subnet-01dca94a7de6285fe,subnet-06294dffa2582907e"
 
   pDBName:
     Description: Name of the new database
@@ -347,8 +391,6 @@ Resources:
       Tags:
         - Key: "workload:apps"
           Value: !Ref pTagValueApps
-        - Key: "workload:tech-owner"
-          Value: !Ref pTagValueTechOwner
         - Key: "workload:environment"
           Value: !Ref pTagValueEnvironment
         - Key: "workload:cost-center"
@@ -373,9 +415,20 @@ Resources:
   AuroraDBEndpointParameter:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: "/rds/aurora/endpoint"
+      Name: !Sub /rds/${pDBName}/endpoint
       Type: String
       Value: !GetAtt AuroraDBCluster.Endpoint.Address
       Description: "Aurora DB Cluster endpoint"
     DependsOn:
     - AuroraRDSDBInstance
+
+  AuroraDBPortParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /rds/${pDBName}/port
+      Type: String
+      Value: !GetAtt AuroraDBCluster.Endpoint.Port
+      Description: "Aurora DB Cluster port"
+    DependsOn:
+    - AuroraRDSDBInstance
+

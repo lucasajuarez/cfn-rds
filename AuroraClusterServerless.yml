@@ -1,0 +1,381 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Create an Aurora DB Cluster (serverless)
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+        Label:
+          default: Configuraciones de la solución
+        Parameters:
+          - pPrefix
+          - pSubnets
+          - pClusterId
+          - pDBName
+          - pDBEngine
+          - pEngineVersion
+          - pMasterUsername
+          - pDBPassSecret
+          - pMinCapacity
+          - pMaxCapacity
+  
+      -
+        Label:
+          default: Tags para recursos
+        Parameters:
+          - pTagValueApps
+          - pTagValueTechOwner
+          - pTagValueEnvironment
+          - pTagValueMaintenanceWindow
+          - pTagValueProject
+          - pTagValueName
+          - pTagValueBackupDaily
+          - pTagValueBackupWeekly
+          - pTagValueBackupMonthly
+          - pTagValueSchedule
+          - pTagValueAvailability
+          - pTagValueCriticity
+          - pTagValueArchitectureType
+          - pTagValueCostCenter
+
+    ParameterLabels:
+      pPrefix:
+        default: Prefix name resources account associate.
+      pTagValueApps:
+        default: workload:apps
+      pTagValueTechOwner:
+        default: workload:tech-owner
+      pTagValueEnvironment:
+        default: workload:environment
+      pTagValueCostCenter:
+        default: workload:cost-center
+      pTagValueBussOwner:
+        default: workload:buss-owner
+      pTagValueMaintenanceWindow:
+        default: workload:maintenance-window
+      pTagValueProject:
+        default: workload:project
+      pTagValueName:
+        default: Name
+      pTagValueBackupDaily:
+        default: automation:aws-backup-daily
+      pTagValueBackupWeekly:
+        default: automation:aws-backup-weekly
+      pTagValueBackupMonthly:
+        default: automation:aws-backup-monthly 
+      pTagValueSchedule:
+        default: automation:schedule
+      pTagValueAvailability:
+        default: security:availability
+      pTagValueCriticity:
+        default: security:criticity
+      pTagValueArchitectureType:
+        default: sn:architecture-type
+
+Parameters:
+  pPrefix:
+    Description: Prefix name resources account associate
+    Type: String
+    Default: "account"
+
+  pVPCId:
+    Type: String
+    Description: VPC Id
+
+  pVPCCidr:
+    Type: String
+    Description: VPC CIDR
+
+  pSubnetsPrivate:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: "Subnet para crear RDS SubnetGroup"
+    Default: "subnet-0782c1ef128e56874,subnet-020c7e4ab1b6248bd,subnet-01d1faa6f2cc6ef50"
+
+  pDBName:
+    Description: Name of the new database
+    Type: String
+
+  pClusterId:
+    Description: DB Cluster Identifier
+    Type: String
+
+  pInstanceId:
+    Description: DB Instance Identifier
+    Type: String  
+  
+  pDBEngine:
+    Description: DB engine
+    Type: String
+    Default: aurora-mysql
+
+  pEngineVersion:
+    Description: Engine Version
+    Type: String
+    Default: '8.0'
+
+  pMasterUsername:
+    Description: Master DB User name
+    Type: String
+    Default: adminuser
+
+  pMinCapacity:
+    Description: Minimum Aurora Capacity Unit (ACU) for Serverless
+    Type: String
+    Default: 2
+
+  pMaxCapacity:
+    Description: Maximum Aurora Capacity Unit (ACU) for Serverless
+    Type: String
+    Default: 8
+
+#tags
+  pTagValueApps:
+    Type: String
+    Description: Este es el valor de tag para 'workload:apps'
+    Default: "rds-cluster"
+  pTagValueTechOwner:
+    Type: String
+    Description: Este es el valor de tag para 'workload:tech-owner'
+    AllowedPattern: ([a-zA-Z0-9_\-\.\+]+)@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.)|(([a-zA-Z0-9\-]+\.)+))([a-zA-Z]{2,4}|[0-9]{1,3})(\]?)
+    ConstraintDescription: Debe ser una direccion de correo valida
+    Default: "aws-operaciones@test.com.ar"
+  pTagValueEnvironment:
+    Type: String
+    Description: Este es el valor de tag para 'workload:environment'
+    AllowedValues:
+      - "dev"
+      - "qa"
+      - "prod"
+      - "sandbox"
+  pTagValueBussOwner:
+    Type: String
+    Description: Este es el valor de tag para 'workload:buss-owner'
+    AllowedPattern: ([a-zA-Z0-9_\-\.\+]+)@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.)|(([a-zA-Z0-9\-]+\.)+))([a-zA-Z]{2,4}|[0-9]{1,3})(\]?)
+    ConstraintDescription: Dee ser una direccion de correo valida
+    Default: "aws-operaciones@comafi.com.ar"      
+  pTagValueMaintenanceWindow:
+    Type: String
+    Description: Este es el valor de tag para 'workload:maintenance-window'
+    Default: "l-v-23:00-03:00"
+  pTagValueProject:
+    Type: String
+    Description: Este es el valor de tag para 'workload:project'
+    Default: "rds-cluster"
+  pTagValueName:
+    Type: String
+    Description: Este es el valor de tag para 'Name'
+    Default: ""
+  pTagValueBackupDaily:
+    Type: String
+    Description: Este es el valor de tag para 'automation:aws-backup-daily'
+    AllowedValues:
+      - "yes"
+      - "no"
+    Default: "yes"
+  pTagValueBackupWeekly:
+    Type: String
+    Description: Este es el valor de tag para 'automation:aws-backup-weekly'
+    AllowedValues:
+      - "yes"
+      - "no"
+    Default: "yes"
+  pTagValueBackupMonthly:
+    Type: String
+    Description: Este es el valor de tag para 'automation:aws-backup-monthly'
+    AllowedValues:
+      - "yes"
+      - "no"
+    Default: "no"
+  pTagValueSchedule:
+    Type: String
+    Description: Este es el valor de tag para 'automation:schedule'
+    Default: "no"
+  pTagValueAvailability:
+    Type: String
+    Description: Este es el valor de tag para 'security:availability'
+    AllowedValues:
+      - "vital"
+      - "sensible"
+      - "relevante"
+      - "normal"
+      - "estandar"
+      - "n/a"
+    Default: "relevante"
+  pTagValueCriticity:
+    Type: String
+    Description: Este es el valor de tag para 'security:criticity'
+    AllowedValues:
+      - "critico"
+      - "alto"
+      - "medio"
+      - "minimo"
+      - "insignificante"
+    Default: "medio"
+  pTagValueArchitectureType:
+    Type: String
+    Description: Este es el valor de tag para 'sn:architecture-type'
+    AllowedValues:
+      - "sas"
+      - "cots"
+      - "home-grown"
+    Default: "sas"
+  pTagValueCostCenter:
+    Type: Number
+    Description: Este es el valor de tag para 'workload:cost-center'.
+    Default: "179" 
+
+Resources:
+  AuroraDBCluster:
+    Type: AWS::RDS::DBCluster
+    DependsOn: 
+      - AuroraSecurityGroup
+      - AuroraDBSubnetGroup
+    Properties:
+      DBClusterIdentifier: !Ref pClusterId
+      CopyTagsToSnapshot: true
+      Engine: !Ref pDBEngine
+      EngineVersion: !Ref pEngineVersion
+      BackupRetentionPeriod: 7
+      EngineMode: "provisioned"
+      DatabaseName: !Ref pDBName
+      ManageMasterUserPassword: true
+      MasterUsername: !Ref pMasterUsername
+      # MasterUserPassword: !Sub "{{resolve:secretsmanager:${pDBPassSecret}:SecretString:password}}"
+      DBSubnetGroupName: !Ref AuroraDBSubnetGroup 
+      ServerlessV2ScalingConfiguration:
+        MinCapacity: !Ref pMinCapacity
+        MaxCapacity: !Ref pMaxCapacity
+      DeletionProtection: true
+      EnableCloudwatchLogsExports: [error, general, slowquery]
+      StorageEncrypted: true
+      VpcSecurityGroupIds:
+        - !Ref AuroraSecurityGroup
+      Tags:
+        - Key: "workload:apps"
+          Value: !Ref pTagValueApps
+        - Key: "workload:tech-owner"
+          Value: !Ref pTagValueTechOwner
+        - Key: "workload:cost-center"
+          Value: !Ref pTagValueCostCenter          
+        - Key: "workload:environment"
+          Value: !Ref pTagValueEnvironment
+        - Key: "workload:buss-owner"
+          Value: !Ref pTagValueBussOwner          
+        - Key: "workload:maintenance-window"
+          Value: !Ref pTagValueMaintenanceWindow
+        - Key: "workload:project"
+          Value: !Ref pTagValueProject
+        - Key: "Name"
+          Value: !Ref pTagValueName
+        - Key: "automation:schedule"
+          Value: !Ref pTagValueSchedule
+        - Key: "security:availability"
+          Value: !Ref pTagValueAvailability
+        - Key: "security:criticity"
+          Value: !Ref pTagValueCriticity
+        - Key: "sn:architecture-type"
+          Value: !Ref pTagValueArchitectureType
+        - Key: "automation:aws-backup-daily"
+          Value: !Ref pTagValueBackupDaily
+        - Key: "automation:aws-backup-weekly"
+          Value: !Ref pTagValueBackupWeekly
+        - Key: "automation:aws-backup-monthly"
+          Value: !Ref pTagValueBackupMonthly
+
+  AuroraRDSDBInstance:
+      Type: 'AWS::RDS::DBInstance'
+      Properties:
+        Engine: !Ref pDBEngine
+        DBInstanceIdentifier: !Ref pInstanceId
+        DBInstanceClass: db.serverless
+        DBClusterIdentifier: !Ref AuroraDBCluster
+        Tags:
+          - Key: "workload:apps"
+            Value: !Ref pTagValueApps
+          - Key: "workload:tech-owner"
+            Value: !Ref pTagValueTechOwner
+          - Key: "workload:cost-center"
+            Value: !Ref pTagValueCostCenter          
+          - Key: "workload:environment"
+            Value: !Ref pTagValueEnvironment
+          - Key: "workload:buss-owner"
+            Value: !Ref pTagValueBussOwner          
+          - Key: "workload:maintenance-window"
+            Value: !Ref pTagValueMaintenanceWindow
+          - Key: "workload:project"
+            Value: !Ref pTagValueProject
+          - Key: "Name"
+            Value: !Ref pTagValueName
+          - Key: "automation:schedule"
+            Value: !Ref pTagValueSchedule
+          - Key: "security:availability"
+            Value: !Ref pTagValueAvailability
+          - Key: "security:criticity"
+            Value: !Ref pTagValueCriticity
+          - Key: "sn:architecture-type"
+            Value: !Ref pTagValueArchitectureType
+          - Key: "automation:aws-backup-daily"
+            Value: !Ref pTagValueBackupDaily
+          - Key: "automation:aws-backup-weekly"
+            Value: !Ref pTagValueBackupWeekly
+          - Key: "automation:aws-backup-monthly"
+            Value: !Ref pTagValueBackupMonthly        
+
+  AuroraSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Join ['-', [!Ref pPrefix, 'DBSecG']]
+      GroupDescription: Enable access to Aurora MySQL DB cluster
+      VpcId: !Ref pVPCId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '3306'
+          ToPort: '3306'
+          CidrIp: !Ref pVPCCidr
+        - IpProtocol: tcp
+          FromPort: '3306'
+          ToPort: '3306'
+          SourcePrefixListId: 'pl-02a1bce2a02da4672'
+          Description: 'Acceso desde la VPN'
+
+  AuroraDBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: "Aurora DB Subnet Group"
+      DBSubnetGroupName: !Join ['-', [!Ref pPrefix, 'DBSnetG']]
+      SubnetIds: !Ref pSubnetsPrivate
+      Tags:
+        - Key: "workload:apps"
+          Value: !Ref pTagValueApps
+        - Key: "workload:tech-owner"
+          Value: !Ref pTagValueTechOwner
+        - Key: "workload:environment"
+          Value: !Ref pTagValueEnvironment
+        - Key: "workload:cost-center"
+          Value: !Ref pTagValueCostCenter
+        - Key: "workload:buss-owner"
+          Value: !Ref pTagValueBussOwner
+        - Key: "workload:maintenance-window"
+          Value: !Ref pTagValueMaintenanceWindow
+        - Key: "workload:project"
+          Value: !Ref pTagValueProject
+        - Key: "Name"
+          Value: !Join ['-', [!Ref pPrefix, 'DBSG']]
+        - Key: "automation:schedule"
+          Value: !Ref pTagValueSchedule
+        - Key: "security:availability"
+          Value: !Ref pTagValueAvailability
+        - Key: "security:criticity"
+          Value: !Ref pTagValueCriticity
+        - Key: "sn:architecture-type"
+          Value: !Ref pTagValueArchitectureType
+
+  AuroraDBEndpointParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: "/rds/aurora/endpoint"
+      Type: String
+      Value: !GetAtt AuroraDBCluster.Endpoint.Address
+      Description: "Aurora DB Cluster endpoint"
+    DependsOn:
+    - AuroraRDSDBInstance

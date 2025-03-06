@@ -1,47 +1,3 @@
-# aws cloudformation create-stack --stack-name dev-signe-rds-stack \
-# --template-body file://AuroraClusterServerless.yml \
-# --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
-# --profile 975050021574_baseline-rol-saml-admin-member \
-# --parameters \
-# ParameterKey=pPrefix,ParameterValue="dev-signe" \
-# ParameterKey=pVPCId,ParameterValue="vpc-09c65c17a9bbaddf1" \
-# ParameterKey=pVPCCidr,ParameterValue="10.128.128.0/19" \
-# ParameterKey=pDBName,ParameterValue="SIGNE" \
-# ParameterKey=pClusterId,ParameterValue="dev-signe-cluster" \
-# ParameterKey=pInstanceId,ParameterValue="dev-signe-instance" \
-# ParameterKey=pDBEngine,ParameterValue="aurora-mysql" \
-# ParameterKey=pEngineVersion,ParameterValue="8.0" \
-# ParameterKey=pMasterUsername,ParameterValue="adminuser" \
-# ParameterKey=pMinCapacity,ParameterValue="2" \
-# ParameterKey=pMaxCapacity,ParameterValue="8" \
-# ParameterKey=pTagValueEnvironment,ParameterValue="dev" \
-# ParameterKey=pTagValueCostCenter,ParameterValue=735 \
-# ParameterKey=pTagValueName,ParameterValue="dev-signe-cluster"
-
-
-
-# aws cloudformation update-stack --stack-name PruebaRDS-Stack \
-# --template-body file://AuroraClusterServerless.yml \
-# --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
-# --profile 905418408906_baseline-rol-saml-admin-member \
-# --parameters \
-# ParameterKey=pPrefix,UsePreviousValue=true \
-# ParameterKey=pVPCId,UsePreviousValue=true \
-# ParameterKey=pVPCCidr,UsePreviousValue=true \
-# ParameterKey=pDBName,UsePreviousValue=true \
-# ParameterKey=pClusterId,UsePreviousValue=true \
-# ParameterKey=pInstanceId,UsePreviousValue=true \
-# ParameterKey=pDBEngine,UsePreviousValue=true \
-# ParameterKey=pEngineVersion,UsePreviousValue=true \
-# ParameterKey=pMasterUsername,UsePreviousValue=true \
-# ParameterKey=pMinCapacity,UsePreviousValue=true \
-# ParameterKey=pMaxCapacity,UsePreviousValue=true \
-# ParameterKey=pTagValueEnvironment,UsePreviousValue=true \
-# ParameterKey=pTagValueCostCenter,UsePreviousValue=true \
-# ParameterKey=pTagValueName,UsePreviousValue=true
-
-
-
 AWSTemplateFormatVersion: '2010-09-09'
 Description: Create an Aurora DB Cluster (serverless)
 
@@ -56,6 +12,7 @@ Metadata:
           - pSubnets
           - pClusterId
           - pDBName
+          - pDBSecretName
           - pDBEngine
           - pEngineVersion
           - pMasterUsername
@@ -130,6 +87,10 @@ Parameters:
     Type: String
     Description: VPC CIDR
 
+  pSourcePrefixListId:
+    Type: String
+    Description: Prefix List Id
+
   pSubnetsPrivate:
     Type: List<AWS::EC2::Subnet::Id>
     Description: "Subnet para crear RDS SubnetGroup"
@@ -145,7 +106,11 @@ Parameters:
 
   pInstanceId:
     Description: DB Instance Identifier
-    Type: String  
+    Type: String
+
+  pDBSecretName:
+    Description: Secret name for the master user password
+    Type: String
   
   pDBEngine:
     Description: DB engine
@@ -182,7 +147,7 @@ Parameters:
     Description: Este es el valor de tag para 'workload:tech-owner'
     AllowedPattern: ([a-zA-Z0-9_\-\.\+]+)@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.)|(([a-zA-Z0-9\-]+\.)+))([a-zA-Z]{2,4}|[0-9]{1,3})(\]?)
     ConstraintDescription: Debe ser una direccion de correo valida
-    Default: "aws-operaciones@test.com.ar"
+    Default: "aws-operaciones@comafi.com.ar"
   pTagValueEnvironment:
     Type: String
     Description: Este es el valor de tag para 'workload:environment'
@@ -269,6 +234,47 @@ Parameters:
     Default: "179" 
 
 Resources:
+
+  RDSSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Ref pDBSecretName
+      Description: !Sub 'Secret to store RDS ${pClusterId} credentials'
+      GenerateSecretString:
+        SecretStringTemplate: '{"username": "adminuser"}'
+        GenerateStringKey: "password"
+        PasswordLength: 16
+        ExcludeCharacters: '"@/\'
+      Tags:
+        - Key: "workload:apps"
+          Value: !Ref pTagValueApps
+        - Key: "workload:cost-center"
+          Value: !Ref pTagValueCostCenter          
+        - Key: "workload:environment"
+          Value: !Ref pTagValueEnvironment
+        - Key: "workload:buss-owner"
+          Value: !Ref pTagValueBussOwner          
+        - Key: "workload:maintenance-window"
+          Value: !Ref pTagValueMaintenanceWindow
+        - Key: "workload:project"
+          Value: !Ref pTagValueProject
+        - Key: "Name"
+          Value: !Ref pTagValueName
+        - Key: "automation:schedule"
+          Value: !Ref pTagValueSchedule
+        - Key: "security:availability"
+          Value: !Ref pTagValueAvailability
+        - Key: "security:criticity"
+          Value: !Ref pTagValueCriticity
+        - Key: "sn:architecture-type"
+          Value: !Ref pTagValueArchitectureType
+        - Key: "automation:aws-backup-daily"
+          Value: !Ref pTagValueBackupDaily
+        - Key: "automation:aws-backup-weekly"
+          Value: !Ref pTagValueBackupWeekly
+        - Key: "automation:aws-backup-monthly"
+          Value: !Ref pTagValueBackupMonthly
+
   AuroraDBCluster:
     Type: AWS::RDS::DBCluster
     DependsOn: 
@@ -282,9 +288,11 @@ Resources:
       BackupRetentionPeriod: 7
       EngineMode: "provisioned"
       DatabaseName: !Ref pDBName
-      ManageMasterUserPassword: true
       MasterUsername: !Ref pMasterUsername
-      # MasterUserPassword: !Sub "{{resolve:secretsmanager:${pDBPassSecret}:SecretString:password}}"
+      ManageMasterUserPassword: false
+      MasterUserSecret:
+        SecretArn: !Ref RDSSecret
+      MasterUserPassword: !Sub "{{resolve:secretsmanager:${RDSSecret}:SecretString:password}}"
       DBSubnetGroupName: !Ref AuroraDBSubnetGroup 
       ServerlessV2ScalingConfiguration:
         MinCapacity: !Ref pMinCapacity
@@ -379,7 +387,7 @@ Resources:
         - IpProtocol: tcp
           FromPort: '3306'
           ToPort: '3306'
-          SourcePrefixListId: 'pl-02a1bce2a02da4672'
+          SourcePrefixListId: !Ref pSourcePrefixListId
           Description: 'Acceso desde la VPN'
 
   AuroraDBSubnetGroup:
